@@ -66,7 +66,7 @@ export const connectDB = async () => {
     return;
   }
 
-  const uri = process.env.MONGO_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/smartcity3d';
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/smartcity3d';
   isConnecting = true;
 
   try {
