@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartCity3D-Web | 3D Smart City Visualization & Management</title>
+  
+  <!-- Google Fonts: Inter & Outfit for modern UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="./css/style.css">
+
+  <!-- ES Module Import Map for Three.js and Addons -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- 3D Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Glassmorphic HUD Overlay -->
+  <div class="hud-overlay">
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+      <div class="brand">
+        <div class="logo-icon">🏙️</div>
+        <div>
+          <h1 class="brand-title">SmartCity3D</h1>
+          <p class="brand-subtitle">Smart City Digital Twin / 3D Urban Monitoring</p>
+        </div>
+      </div>
+
+      <div class="nav-status-group">
+        <div id="backend-status-pill" class="status-pill status-loading" title="Express Backend Server Status">
+          <span class="status-dot"></span>
+          <span id="backend-status-text">Connecting to Server...</span>
+        </div>
+        <div id="db-status-pill" class="status-pill status-neutral" title="MongoDB Atlas Connection Status">
+          <span class="status-dot"></span>
+          <span id="db-status-text">DB: Checking...</span>
+        </div>
+        <span class="badge phase-badge">10 Systems Active • Digital Twin</span>
+      </div>
+    </header>
+
+    <!-- Floating Info Panels Container -->
+    <div class="panels-container">
+      <!-- City Telemetry -->
+      <aside class="floating-panel info-panel">
+        <div class="panel-header">
+          <h3>City Telemetry</h3>
+          <span class="pulse-indicator"></span>
+        </div>
+        <div class="panel-body">
+          <div class="metric-row">
+            <span class="metric-label">3D Engine:</span>
+            <span class="metric-value">Three.js WebGL</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Lighting & Shadows:</span>
+            <span class="metric-value">PCF Soft Shadows</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Active Junctions:</span>
+            <span class="metric-value">4 Intersections</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Frame Rate:</span>
+            <span id="fps-display" class="metric-value">60 FPS</span>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <p class="controls-hint">💡 <strong>Controls:</strong> Left-drag to rotate | Right-drag to pan | Scroll to zoom</p>
+        </div>
+      </aside>
+
+      <!-- Smart Parking Summary Card -->
+      <aside class="floating-panel parking-summary-panel">
+        <div class="panel-header">
+          <h3>Smart Parking</h3>
+          <span id="parking-sync-dot" class="status-dot status-loading" title="MongoDB Sync Active"></span>
+        </div>
+        <div class="panel-body">
+          <div class="metric-row">
+            <span class="metric-label">Total Bays:</span>
+            <span id="parking-total-count" class="metric-value">--</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Available:</span>
+            <span id="parking-available-count" class="metric-value metric-success">--</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Occupied:</span>
+            <span id="parking-occupied-count" class="metric-value metric-danger">--</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Occupancy Rate:</span>
+            <span id="parking-occupancy-rate" class="metric-value">--%</span>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <p class="controls-hint">🅿️ Click any 3D parking bay in North Plaza or South Commercial to inspect slot status.</p>
+        </div>
+      </aside>
+
+      <!-- Smart Traffic Summary Card -->
+      <aside class="floating-panel traffic-summary-panel">
+        <div class="panel-header">
+          <h3>Smart Traffic</h3>
+          <span id="traffic-sync-dot" class="status-dot status-loading" title="Traffic API Sync Active"></span>
+        </div>
+        <div class="panel-body">
+          <div class="metric-row">
+            <span class="metric-label">Active Junctions:</span>
+            <span id="traffic-total-junctions" class="metric-value">4 Junctions</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Moving Traffic:</span>
+            <span id="traffic-moving-count" class="metric-value metric-cyan">16 Active</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Avg City Speed:</span>
+            <span id="traffic-avg-speed" class="metric-value">48 km/h</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Flow Quality:</span>
+            <span id="traffic-flow-status" class="metric-value metric-success">🟢 Smooth Flow</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Phase Status:</span>
+            <span id="traffic-phase-breakdown" class="metric-value">
+              <span id="traffic-green-count" class="metric-success">2 Green</span> | 
+              <span id="traffic-red-count" class="metric-danger">2 Red</span>
+            </span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Corridor Status:</span>
+            <span id="traffic-corridor-status" class="metric-value metric-success">Normal Flow</span>
+          </div>
+          <!-- Traffic Density Selector Pills -->
+          <div class="density-selector-container">
+            <span class="density-label">Density:</span>
+            <div class="density-pills" id="traffic-density-pills">
+              <button class="density-pill" data-density="LOW" title="8 Vehicles">Low</button>
+              <button class="density-pill active" data-density="MEDIUM" title="16 Vehicles">Med</button>
+              <button class="density-pill" data-density="HIGH" title="24 Vehicles">High</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <p class="controls-hint">🚗 Click any moving vehicle or 🚦 traffic signal to inspect live telemetry.</p>
+        </div>
+      </aside>
+
+      <!-- Smart Emergency Services Summary Card -->
+      <aside class="floating-panel emergency-summary-panel">
+        <div class="panel-header">
+          <h3>Emergency Ops</h3>
+          <span id="emergency-sync-dot" class="status-dot status-loading" title="Emergency API Sync Active"></span>
+        </div>
+        <div class="panel-body">
+          <div class="metric-row">
+            <span class="metric-label">Active Incidents:</span>
+            <span id="emergency-total-count" class="metric-value metric-danger">0</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Units on Scene:</span>
+            <span id="emergency-breakdown" class="metric-value">
+              <span id="emergency-med-count" class="metric-cyan">0 🚑</span> | 
+              <span id="emergency-fire-count" class="metric-danger">0 🚒</span> | 
+              <span id="emergency-police-count" class="metric-blue">0 🚓</span>
+            </span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Alert Level:</span>
+            <span id="emergency-highest-severity" class="metric-value">NORMAL</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Corridor Priority:</span>
+            <span id="emergency-corridor-status" class="metric-value metric-success">Standby</span>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <p class="controls-hint">🚨 Click any 3D emergency responder vehicle or skyward beacon to inspect unit.</p>
+        </div>
+      </aside>
+
+      <!-- Smart Environment Monitoring Summary Card -->
+      <aside class="floating-panel environment-summary-panel">
+        <div class="panel-header">
+          <h3>Smart Environment</h3>
+          <span id="environment-sync-dot" class="status-dot status-loading" title="Environment API Sync Active"></span>
+        </div>
+        <div class="panel-body">
+          <div class="metric-row">
+            <span class="metric-label">City Air Quality:</span>
+            <span id="env-city-aqi" class="metric-value metric-success">-- AQI</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Temp & Humidity:</span>
+            <span id="env-temp-humidity" class="metric-value">--°C | --%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Key Pollutant:</span>
+            <span id="env-primary-pollutant" class="metric-value">PM2.5: --</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Eco-Zone Quality:</span>
+            <span id="env-eco-status" class="metric-value metric-success">🌿 Optimal</span>
+          </div>
+          <div id="env-alert-row" class="metric-row env-alert-row hidden">
+            <span class="metric-label">Pollution Advisory:</span>
+            <span id="env-alert-text" class="metric-value metric-danger">⚠️ High AQI Detected</span>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <p class="controls-hint">🌿 Click any 3D meteorological sensor tower to inspect air quality, gases & temperature.</p>
+        </div>
+      </aside>
+
+      <!-- Smart Street Lighting Summary Card -->
+      <aside class="floating-panel lighting-summary-panel">
+        <div class="panel-header">
+          <h3>Smart Street Lighting</h3>
+          <span id="lighting-sync-dot" class="status-dot status-loading" title="Lighting API Sync Active"></span>
+        </div>
+        <div class="panel-body">
+          <div class="metric-row">
+            <span class="metric-label">Active Luminaires:</span>
+            <span id="lighting-active-count" class="metric-value metric-success">-- / 16</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Faulty Luminaires:</span>
+            <span id="lighting-faulty-count" class="metric-value metric-danger">--</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Average Brightness:</span>
+            <span id="lighting-avg-brightness" class="metric-value">--%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Current Power Demand:</span>
+            <span id="lighting-power-kw" class="metric-value">-- kW</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Energy Saved:</span>
+            <span id="lighting-energy-saved" class="metric-value metric-success">--%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">System Mode:</span>
+            <span id="lighting-system-mode" class="metric-value">AUTO</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Day / Night:</span>
+            <span id="lighting-daynight-status" class="metric-value">NIGHT</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Adaptive Lighting:</span>
+            <span id="lighting-adaptive-status" class="metric-value metric-cyan">ACTIVE</span>
+          </div>
+          <div id="lighting-fault-alert" class="metric-row env-alert-row">
+            <span class="metric-label">Fault Alert:</span>
+            <span id="lighting-fault-text" class="metric-value metric-danger">⚠️ SL-08 • DRIVER_FAULT</span>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <p class="controls-hint">💡 3D smart street lights adapt dynamically to day/night & vehicle traffic.</p>
+        </div>
+      </aside>
+
+      <!-- Smart City Energy Optimization & Analytics HUD Card (Step 9) -->
+      <aside class="floating-panel energy-summary-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <span class="panel-icon">⚡</span>
+            <h3>Energy Analytics</h3>
+          </div>
+          <span id="energy-mode-badge" class="status-pill status-cyan">NORMAL</span>
+        </div>
+        <div class="panel-body">
+          <div class="metric-row">
+            <span class="metric-label">⚡ Current Power:</span>
+            <span id="energy-hud-power" class="metric-value metric-cyan">Loading...</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">🔋 Daily Energy:</span>
+            <span id="energy-hud-daily" class="metric-value">Loading...</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">📊 Monthly Energy:</span>
+            <span id="energy-hud-monthly" class="metric-value">Loading...</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">💰 Daily Cost:</span>
+            <span id="energy-hud-cost" class="metric-value metric-amber">Loading...</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">🌱 Energy Saved:</span>
+            <span id="energy-hud-saved" class="metric-value metric-success">Loading...</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">💡 Active Lights:</span>
+            <span id="energy-hud-active" class="metric-value">Loading...</span>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <button id="btn-open-energy-panel" class="action-btn btn-energy-action" title="Open full Energy Optimization & Analytics dashboard">
+            📊 Energy Analytics & Optimization
+          </button>
+        </div>
+      </aside>
+
+      <!-- City Zoning Legend -->
+      <aside class="floating-panel legend-panel">
+        <div class="panel-header">
+          <h3>City Zones</h3>
+        </div>
+        <div class="panel-body">
+          <div class="legend-item">
+            <span class="legend-color legend-commercial"></span>
+            <span>Commercial Skyscraper District</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color legend-residential"></span>
+            <span>Residential Living District</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color legend-tech"></span>
+            <span>Tech & Innovation Park</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color legend-park"></span>
+            <span>Central Park & Lake</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Parking Slot Detail Inspector Card -->
+    <div id="parking-detail-modal" class="slot-detail-card hidden">
+      <div class="slot-detail-header">
+        <div class="slot-title-group">
+          <span class="slot-icon">🅿️</span>
+          <div>
+            <h4 id="slot-modal-code">Slot P-01</h4>
+            <p id="slot-modal-zone">North Plaza</p>
+          </div>
+        </div>
+        <button id="slot-modal-close" class="close-btn" title="Close Panel">✕</button>
+      </div>
+      <div class="slot-detail-body">
+        <div class="detail-row">
+          <span class="detail-label">Current Status:</span>
+          <span id="slot-modal-status" class="status-pill status-online">Available</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Vehicle Number:</span>
+          <span id="slot-modal-vehicle" class="detail-val">None</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">3D Coordinates:</span>
+          <span id="slot-modal-coords" class="detail-val">X: -25, Z: -25</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Traffic Signal Detail Inspector Card -->
+    <div id="traffic-detail-modal" class="slot-detail-card traffic-detail-modal hidden">
+      <div class="slot-detail-header">
+        <div class="slot-title-group">
+          <span class="slot-icon">🚦</span>
+          <div>
+            <h4 id="signal-modal-id">Junction J-NORTH</h4>
+            <p id="signal-modal-name">North Boulevard Junction</p>
+          </div>
+        </div>
+        <button id="signal-modal-close" class="close-btn" title="Close Panel">✕</button>
+      </div>
+      <div class="slot-detail-body">
+        <div class="detail-row">
+          <span class="detail-label">Signal Status:</span>
+          <span id="signal-modal-status" class="status-pill status-online">GREEN (GO)</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Cycle Countdown:</span>
+          <span id="signal-modal-timer" class="detail-val">12s remaining</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Corridor Priority:</span>
+          <span id="signal-modal-emergency" class="detail-val">Standard</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Intersection:</span>
+          <span id="signal-modal-coords" class="detail-val">X: 7.5, Z: -35</span>
+        </div>
+        <div class="detail-actions">
+          <button id="btn-cycle-phase" class="action-btn" title="Switch to next phase">
+            🔄 Switch Phase
+          </button>
+          <button id="btn-toggle-override" class="action-btn btn-danger-action" title="Toggle green emergency corridor">
+            🚨 Emergency Corridor
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emergency Incident Detail Inspector Card -->
+    <div id="emergency-detail-modal" class="slot-detail-card emergency-detail-modal hidden">
+      <div class="slot-detail-header">
+        <div class="slot-title-group">
+          <span id="emergency-modal-icon" class="slot-icon">🚑</span>
+          <div>
+            <h4 id="emergency-modal-id">Incident INC-101</h4>
+            <p id="emergency-modal-location">North Tech Park (Sector 3)</p>
+          </div>
+        </div>
+        <button id="emergency-modal-close" class="close-btn" title="Close Panel">✕</button>
+      </div>
+      <div class="slot-detail-body">
+        <div class="detail-row">
+          <span class="detail-label">Service Type:</span>
+          <span id="emergency-modal-type" class="status-pill status-cyan">AMBULANCE</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Severity Level:</span>
+          <span id="emergency-modal-severity" class="status-pill status-error">HIGH ALERT</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Current Status:</span>
+          <span id="emergency-modal-status" class="status-pill status-online">REPORTED</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Description:</span>
+          <span id="emergency-modal-desc" class="detail-val text-wrap">Medical emergency reported at Sector 3</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Coordinates:</span>
+          <span id="emergency-modal-coords" class="detail-val">X: -14, Z: -14</span>
+        </div>
+        <div class="detail-actions">
+          <button id="btn-emergency-corridor-action" class="action-btn btn-danger-action" title="Switch traffic lights to green corridor for this unit">
+            🚨 Green Corridor
+          </button>
+          <button id="btn-resolve-incident" class="action-btn btn-success-action" title="Mark this incident as resolved">
+            ✅ Resolve Incident
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vehicle Detail Inspector Card -->
+    <div id="vehicle-detail-modal" class="slot-detail-card vehicle-detail-modal hidden">
+      <div class="slot-detail-header">
+        <div class="slot-title-group">
+          <span id="vehicle-modal-icon" class="slot-icon">🚗</span>
+          <div>
+            <h4 id="vehicle-modal-id">Vehicle VEH-104</h4>
+            <p id="vehicle-modal-plate">Plate: SC-4821</p>
+          </div>
+        </div>
+        <button id="vehicle-modal-close" class="close-btn" title="Close Panel">✕</button>
+      </div>
+      <div class="slot-detail-body">
+        <div class="detail-row">
+          <span class="detail-label">Vehicle Type:</span>
+          <span id="vehicle-modal-type" class="status-pill status-cyan">CAR (Sedan)</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Current Speed:</span>
+          <span id="vehicle-modal-speed" class="status-pill status-online">48 km/h</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Driving Status:</span>
+          <span id="vehicle-modal-status" class="detail-val">Cruising</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Road & Lane:</span>
+          <span id="vehicle-modal-road" class="detail-val text-wrap">North-South Ave (Southbound)</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Next Signal:</span>
+          <span id="vehicle-modal-signal" class="detail-val">J-NORTH [🟢 GREEN - 11s]</span>
+        </div>
+        <div class="detail-actions">
+          <button id="btn-follow-vehicle" class="action-btn btn-cyan-action" title="Lock camera to follow this vehicle">
+            🎯 Follow Vehicle
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Environment Sensor Detail Inspector Card -->
+    <div id="environment-detail-modal" class="slot-detail-card environment-detail-modal hidden">
+      <div class="slot-detail-header">
+        <div class="slot-title-group">
+          <span class="slot-icon">🌿</span>
+          <div>
+            <h4 id="env-modal-id">Sensor ENV-01</h4>
+            <p id="env-modal-location">Central Eco Park Station</p>
+          </div>
+        </div>
+        <button id="env-modal-close" class="close-btn" title="Close Panel">✕</button>
+      </div>
+      <div class="slot-detail-body">
+        <div class="detail-row">
+          <span class="detail-label">Air Quality Index:</span>
+          <span id="env-modal-aqi-pill" class="status-pill status-online">AQI 28 - GOOD</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Ambient Climate:</span>
+          <span id="env-modal-climate" class="detail-val">22.4°C  |  64% RH</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Particulates (PM):</span>
+          <span id="env-modal-pm" class="detail-val">PM2.5: 8 µg/m³  |  PM10: 16 µg/m³</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Gases (CO2 & NO2):</span>
+          <span id="env-modal-gases" class="detail-val">CO2: 395 ppm  |  NO2: 12 µg/m³</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Zone Designation:</span>
+          <span id="env-modal-zone" class="detail-val">PARK (Green Sanctuary)</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Coordinates:</span>
+          <span id="env-modal-coords" class="detail-val">X: 22, Z: 18</span>
+        </div>
+        <div class="detail-actions">
+          <button id="btn-toggle-eco-filter" class="action-btn btn-success-action" title="Toggle active air mist purification on this station">
+            💧 Activate Eco Mist Filter
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Street Light Detail Inspector Card -->
+    <div id="light-detail-modal" class="slot-detail-card light-detail-modal hidden">
+      <div class="slot-detail-header">
+        <div class="slot-title-group">
+          <span class="slot-icon">💡</span>
+          <div>
+            <span class="inspector-badge">SMART STREET LIGHT</span>
+            <h4 id="light-modal-id">SL-01</h4>
+            <p id="light-modal-name">North-South Ave Luminaire 1</p>
+          </div>
+        </div>
+        <button id="light-modal-close" class="close-btn" title="Close Inspector">✕</button>
+      </div>
+      <div class="slot-detail-body">
+        <div class="detail-row">
+          <span class="detail-label">Zone:</span>
+          <span id="light-modal-zone" class="detail-val">COMMERCIAL</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Status:</span>
+          <span id="light-modal-status-pill" class="status-pill status-online">ON</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Brightness:</span>
+          <span id="light-modal-brightness-val" class="detail-val">80%</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Mode:</span>
+          <span id="light-modal-mode-val" class="detail-val">AUTO</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Lamp Type:</span>
+          <span id="light-modal-lamp-type" class="detail-val">LED_SMART_LUMINAIRE</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Power Rating:</span>
+          <span id="light-modal-power-rating" class="detail-val">120 W</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Current Brightness:</span>
+          <span id="light-modal-brightness-energy" class="detail-val">80%</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Estimated Live Power:</span>
+          <span id="light-modal-live-power" class="detail-val">96 W (0.096 kW)</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Daily Energy Estimate:</span>
+          <span id="light-modal-daily-energy" class="detail-val">1.25 kWh</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Energy Saved:</span>
+          <span id="light-modal-energy-saved" class="detail-val metric-success">35%</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Zone Contribution:</span>
+          <span id="light-modal-zone-contrib" class="detail-val">COMMERCIAL (22% zone load)</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Fault Type:</span>
+          <span id="light-modal-fault-pill" class="status-pill status-online">NONE</span>
+        </div>
+        <div id="light-modal-fault-row" class="detail-row light-fault-row hidden">
+          <span class="detail-label">Diagnostics:</span>
+          <span id="light-modal-fault-text" class="status-pill status-error">⚠️ Diagnostic fault active</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Coordinates:</span>
+          <span id="light-modal-coords" class="detail-val">X: -7.5, Y: 0.0, Z: -60.0</span>
+        </div>
+
+        <div class="inspector-controls-divider"></div>
+
+        <!-- Controls: Status & Mode -->
+        <div class="light-control-row">
+          <div class="light-control-field">
+            <span class="control-label">Status Control:</span>
+            <button id="btn-toggle-light-power" class="action-btn btn-amber-action" title="Toggle Luminaire ON / OFF">
+              💡 Turn Light OFF
+            </button>
+          </div>
+          <div class="light-control-field">
+            <span class="control-label">Mode Selector:</span>
+            <select id="light-mode-select" class="cyber-select" title="Change operating mode">
+              <option value="AUTO">AUTO</option>
+              <option value="MANUAL">MANUAL</option>
+              <option value="ECO_RADAR">ECO_RADAR</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Brightness Slider Control -->
+        <div class="brightness-slider-group">
+          <div class="slider-header">
+            <span class="slider-label">Brightness Control:</span>
+            <span id="light-slider-indicator">80%</span>
+          </div>
+          <input type="range" id="light-brightness-slider" min="10" max="100" step="1" value="80" class="cyber-range-slider" />
+        </div>
+
+        <!-- Diagnostic Fault Reset Action (Visible ONLY for faulty lights) -->
+        <div id="light-fault-action-container" class="detail-actions hidden">
+          <button id="btn-reset-light-fault" class="action-btn btn-danger-action" title="Clear diagnostic fault and restore luminaire">
+            🛠️ RESET FAULT
+          </button>
+        </div>
+
+        <!-- Feedback Notification -->
+        <div id="light-control-feedback" class="light-feedback hidden"></div>
+      </div>
+    </div>
+
+    <!-- Smart City Facility Detail Inspector Card -->
+    <div id="facility-detail-modal" class="slot-detail-card facility-detail-modal hidden">
+      <div class="slot-detail-header">
+        <div class="slot-title-group">
+          <span id="facility-modal-icon" class="slot-icon">🏢</span>
+          <div>
+            <span class="inspector-badge">SMART CITY FACILITY</span>
+            <h4 id="facility-modal-name">CITY HOSPITAL</h4>
+            <p id="facility-modal-zone">Zone: CIVIC</p>
+          </div>
+        </div>
+        <button id="facility-modal-close" class="close-btn" title="Close Panel">✕</button>
+      </div>
+      <div class="slot-detail-body">
+        <div class="detail-row">
+          <span class="detail-label">Facility ID:</span>
+          <span id="facility-modal-id" class="detail-val">FAC-HOSPITAL</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Type:</span>
+          <span id="facility-modal-type" class="status-pill status-cyan">HOSPITAL</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Current Status:</span>
+          <span id="facility-modal-status" class="status-pill status-online">OPERATIONAL</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Description:</span>
+          <span id="facility-modal-desc" class="detail-val text-wrap">Central metropolitan healthcare facility.</span>
+        </div>
+        <div id="facility-modal-extra-row" class="detail-row">
+          <span id="facility-modal-extra-label" class="detail-label">Emergency Services:</span>
+          <span id="facility-modal-extra-val" class="detail-val">Available (Trauma Level 1)</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">3D Coordinates:</span>
+          <span id="facility-modal-coords" class="detail-val">X: 22, Y: 0, Z: -64</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pedestrian Detail Inspector Card -->
+    <div id="pedestrian-detail-modal" class="slot-detail-card pedestrian-detail-modal hidden">
+      <div class="slot-detail-header">
+        <div class="slot-title-group">
+          <span class="slot-icon">🚶</span>
+          <div>
+            <span class="inspector-badge">PEDESTRIAN</span>
+            <h4 id="pedestrian-modal-name">Alex Mercer</h4>
+            <p id="pedestrian-modal-id">ID: PED-01</p>
+          </div>
+        </div>
+        <button id="pedestrian-modal-close" class="close-btn" title="Close Panel">✕</button>
+      </div>
+      <div class="slot-detail-body">
+        <div class="detail-row">
+          <span class="detail-label">Pedestrian Type:</span>
+          <span id="pedestrian-modal-type" class="status-pill status-cyan">CITIZEN</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Current Status:</span>
+          <span id="pedestrian-modal-status" class="status-pill status-online">WALKING</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Active Destination:</span>
+          <span id="pedestrian-modal-dest" class="detail-val">CITY PARK</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Walking Speed:</span>
+          <span id="pedestrian-modal-speed" class="detail-val">1.3 m/s</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">3D Coordinates:</span>
+          <span id="pedestrian-modal-coords" class="detail-val">X: 18.0, Y: 0.2, Z: 58.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Smart City Energy Optimization & Analytics Modal (Step 9) -->
+    <div id="energy-analytics-modal" class="energy-analytics-modal hidden">
+      <div class="analytics-modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">⚡</span>
+          <div>
+            <span class="inspector-badge">SMART GRID ANALYTICS</span>
+            <h4>CITY ENERGY OPTIMIZATION & ANALYTICS</h4>
+            <p class="modal-subtitle">Municipal Smart Lighting Network Telemetry & Optimization</p>
+          </div>
+        </div>
+        <button id="energy-modal-close" class="close-btn" title="Close Panel">✕</button>
+      </div>
+
+      <div class="analytics-modal-body">
+        <!-- Optimization Control Toolbar -->
+        <div class="energy-controls-card">
+          <div class="controls-title-row">
+            <span class="section-title">Grid Optimization Controls</span>
+            <span id="energy-modal-mode-status" class="status-pill status-cyan">NORMAL MODE ACTIVE</span>
+          </div>
+          <div class="energy-actions-row">
+            <button id="btn-energy-mode-normal" class="action-btn btn-mode-btn active" title="Run standard adaptive vehicle radar lighting">
+              🟢 Normal Mode
+            </button>
+            <button id="btn-energy-mode-eco" class="action-btn btn-mode-btn" title="Activate deep eco dimming on low-traffic avenues">
+              🌿 Eco Mode
+            </button>
+            <button id="btn-optimize-lighting" class="action-btn btn-optimize-action" title="One-click intelligent energy optimization">
+              ⚡ Optimize Lighting
+            </button>
+          </div>
+          <div id="energy-optimization-toast" class="optimization-toast hidden"></div>
+        </div>
+
+        <!-- Key Energy Metrics Cards -->
+        <div class="energy-metrics-grid">
+          <div class="energy-kpi-card">
+            <span class="kpi-label">⚡ Live Power Demand</span>
+            <div class="kpi-value-row">
+              <span id="energy-kpi-power" class="kpi-value metric-cyan">-- kW</span>
+              <span class="kpi-sub">of <span id="energy-kpi-connected">1.92</span> kW</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div id="energy-kpi-power-bar" class="progress-bar-fill progress-cyan" style="width: 50%;"></div>
+            </div>
+          </div>
+
+          <div class="energy-kpi-card">
+            <span class="kpi-label">🌱 Energy Saved</span>
+            <div class="kpi-value-row">
+              <span id="energy-kpi-saved" class="kpi-value metric-success">--%</span>
+              <span class="kpi-sub">vs 100% Baseline</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div id="energy-kpi-saved-bar" class="progress-bar-fill progress-emerald" style="width: 40%;"></div>
+            </div>
+          </div>
+
+          <div class="energy-kpi-card">
+            <span class="kpi-label">🔋 Daily Energy</span>
+            <div class="kpi-value-row">
+              <span id="energy-kpi-daily" class="kpi-value">-- kWh</span>
+              <span class="kpi-sub">24h Projection</span>
+            </div>
+            <span class="kpi-sub-text">Monthly: <strong id="energy-kpi-monthly">-- kWh</strong></span>
+          </div>
+
+          <div class="energy-kpi-card">
+            <span class="kpi-label">💰 Estimated Energy Cost</span>
+            <div class="kpi-value-row">
+              <span id="energy-kpi-daily-cost" class="kpi-value metric-amber">₹--</span>
+              <span class="kpi-sub">/ day</span>
+            </div>
+            <span class="kpi-sub-text">Monthly: <strong id="energy-kpi-monthly-cost">₹--</strong></span>
+          </div>
+        </div>
+
+        <!-- Tariff Notice -->
+        <div class="tariff-info-row">
+          <span>Configured Electricity Tariff: <strong id="energy-tariff-rate">8.0</strong> per kWh (Estimated Configurable Municipal Rate)</span>
+        </div>
+
+        <!-- Zone-Wise Energy Breakdown (CSS Comparison Bars) -->
+        <div class="zone-breakdown-card">
+          <div class="section-header-row">
+            <span class="section-title">Zone Energy Consumption & Savings</span>
+            <span class="section-hint">Comparative load across 5 municipal districts</span>
+          </div>
+          <div id="zone-analytics-list" class="zone-analytics-list">
+            <!-- Dynamically populated CSS comparison bars -->
+          </div>
+        </div>
+
+        <!-- Active Grid Alerts -->
+        <div class="energy-alerts-card">
+          <div class="section-header-row">
+            <span class="section-title">Energy Grid Advisories</span>
+            <span id="energy-alerts-count" class="badge">0 Active</span>
+          </div>
+          <div id="energy-alerts-container" class="energy-alerts-container">
+            <div class="alert-empty">✅ All municipal energy sub-grids operating within optimal efficiency thresholds.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Controls Toolbar -->
+    <div class="bottom-toolbar">
+      <button id="btn-toggle-daynight" class="tool-btn" title="Toggle Day / Night Lighting">
+        <span class="btn-icon">🌙</span> Night Mode
+      </button>
+      <button id="btn-reset-cam" class="tool-btn" title="Reset Camera View">
+        <span class="btn-icon">🎯</span> Reset View
+      </button>
+      <button id="btn-toggle-grid" class="tool-btn" title="Toggle Grid Plane">
+        <span class="btn-icon">📐</span> Toggle Grid
+      </button>
+      <button id="btn-toggle-rotation" class="tool-btn" title="Toggle Auto-Rotate">
+        <span class="btn-icon">🔄</span> Auto Rotate
+      </button>
+    </div>
+  </div>
+
+  <!-- Client-side Logic (ES Module) -->
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
