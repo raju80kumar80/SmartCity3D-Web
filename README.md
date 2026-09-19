@@ -2,6 +2,10 @@
 
 ## 3D Smart City Digital Twin & Urban Monitoring Platform
 
+🌐 **Live Project:** [Open Live Demo](https://smartcity3d-web.onrender.com)
+
+📂 **GitHub Repository:** [View Repository](https://github.com/raju80kumar80/SmartCity3D-Web)
+
 SmartCity3D-Web is a web-based 3D Smart City Digital Twin designed to visualize and monitor modern urban infrastructure in an interactive 3D environment.
 
 The project combines **Three.js, JavaScript, Node.js, Express.js and MongoDB** to simulate smart-city systems such as traffic management, smart parking, emergency response, environmental monitoring, smart street lighting, pedestrians, vehicles and energy analytics.
